@@ -1,0 +1,6 @@
+{
+  "name": "Intelligent Maintenance System",
+  "description": "IMS is an enterprise-grade CMMS platform featuring work orders, technician dispatch, SLA tracking, Mojo ticket intake, automated supervisor reviews, AI-powered work order classification and supplier email generation, and full administrative governance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
