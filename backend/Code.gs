@@ -24,3 +24,25 @@ function bootstrapDatabase() {
   Logger.log(res);
   return res;
 }
+
+/**
+ * Internal HtmlService bridge for the React frontend.
+ * Allows the deployed Apps Script UI to call the same API gateway without any Web App URL.
+ */
+function runApi(requestJson) {
+  var output = doPost({
+    postData: {
+      contents: requestJson || "{}"
+    }
+  });
+
+  if (output && typeof output.getContent === "function") {
+    return output.getContent();
+  }
+
+  return JSON.stringify({
+    ok: false,
+    data: null,
+    message: "Apps Script bridge failed to return a valid response."
+  });
+}

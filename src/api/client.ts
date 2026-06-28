@@ -3,17 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// Reset Local Database
 export function resetLocalDatabase(): void {
   try {
     localStorage.removeItem("ims_apps_script_url");
     sessionStorage.removeItem("ims_google_id_token");
   } catch (e) {
-    console.warn("localStorage is blocked or unavailable:", e);
+    console.warn("Storage is blocked or unavailable:", e);
   }
 }
 
-// API response interface
 export interface ApiResponse<T = any> {
   ok: boolean;
   data: T | null;
@@ -30,6 +28,12 @@ class ApiClient {
   private idToken: string = "";
 
   public getAppsScriptUrl(): string {
+    const googleObj = typeof window !== "undefined" ? (window as any).google : null;
+
+    if (googleObj?.script?.run) {
+      return "apps-script-runtime";
+    }
+
     try {
       const storedUrl = localStorage.getItem("ims_apps_script_url");
       if (storedUrl) return storedUrl;
@@ -37,22 +41,7 @@ class ApiClient {
       console.warn("localStorage is blocked or unavailable:", e);
     }
 
-    const envUrl = (import.meta as any).env?.VITE_APPS_SCRIPT || "";
-    if (envUrl) return envUrl;
-
-    if (typeof window !== "undefined") {
-      try {
-        const currentUrl = new URL(window.location.href);
-        if (
-          currentUrl.hostname.includes("script.google.com") &&
-          currentUrl.pathname.includes("/macros/")
-        ) {
-          return currentUrl.origin + currentUrl.pathname;
-        }
-      } catch (e) {}
-    }
-
-    return "";
+    return (import.meta as any).env?.VITE_APPS_SCRIPT || "";
   }
 
   public updateAppsScriptUrl(url: string): void {
@@ -65,6 +54,7 @@ class ApiClient {
 
   public getIdToken(): string {
     if (this.idToken) return this.idToken;
+
     try {
       return sessionStorage.getItem("ims_google_id_token") || "";
     } catch (e) {
@@ -74,6 +64,7 @@ class ApiClient {
 
   public setIdToken(token: string): void {
     this.idToken = token;
+
     try {
       if (token) {
         sessionStorage.setItem("ims_google_id_token", token);
@@ -83,17 +74,62 @@ class ApiClient {
     } catch (e) {}
   }
 
-  // Unified request interface
   public async request<T = any>(action: string, payload: any = {}): Promise<ApiResponse<T>> {
     const requestId = `REQ-${new Date().toISOString().replace(/[-:T.Z]/g, "").slice(0, 14)}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const requestBody = {
+      action,
+      requestId,
+      auth: {
+        idToken: this.getIdToken(),
+      },
+      payload,
+    };
+
+    const googleObj = typeof window !== "undefined" ? (window as any).google : null;
+
+    if (googleObj?.script?.run) {
+      return await new Promise<ApiResponse<T>>((resolve) => {
+        googleObj.script.run
+          .withSuccessHandler((raw: string) => {
+            try {
+              resolve(JSON.parse(raw) as ApiResponse<T>);
+            } catch (err: any) {
+              resolve({
+                ok: false,
+                data: null,
+                message: err.message || "Failed to parse Apps Script response.",
+                meta: {
+                  requestId,
+                  timestamp: new Date().toISOString(),
+                  actor: "anonymous",
+                },
+              });
+            }
+          })
+          .withFailureHandler((err: any) => {
+            resolve({
+              ok: false,
+              data: null,
+              message: err?.message || String(err) || "Apps Script bridge call failed.",
+              meta: {
+                requestId,
+                timestamp: new Date().toISOString(),
+                actor: "anonymous",
+              },
+            });
+          })
+          .runApi(JSON.stringify(requestBody));
+      });
+    }
+
     const appsScriptUrl = this.getAppsScriptUrl();
 
-    if (!appsScriptUrl) {
-      console.error("Apps Script API URL is not configured.");
+    if (!appsScriptUrl || appsScriptUrl === "apps-script-runtime") {
       return {
         ok: false,
         data: null,
-        message: "Apps Script API URL is not configured.",
+        message: "Apps Script backend is not available.",
         meta: {
           requestId,
           timestamp: new Date().toISOString(),
@@ -107,26 +143,19 @@ class ApiClient {
         method: "POST",
         mode: "cors",
         headers: {
-          "Content-Type": "text/plain;charset=utf-8", // Needed to bypass CORS preflight with Apps Script
+          "Content-Type": "text/plain;charset=utf-8",
         },
-        body: JSON.stringify({
-          action,
-          requestId,
-          auth: {
-            idToken: this.getIdToken()
-          },
-          payload,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
         throw new Error(`HTTP Error: ${response.status}`);
       }
 
-      const json = await response.json();
-      return json as ApiResponse<T>;
+      return (await response.json()) as ApiResponse<T>;
     } catch (err: any) {
       console.error(`Apps Script direct API failed for action "${action}":`, err);
+
       return {
         ok: false,
         data: null,
