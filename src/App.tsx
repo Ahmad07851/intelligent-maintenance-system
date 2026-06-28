@@ -47,9 +47,9 @@ export default function App() {
   const [saved, setSaved] = useState(false);
 
   // Sign-in state
-  const [inputToken, setInputToken] = useState("");
   const [loginError, setLoginError] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
+  const clientId = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || "";
 
   // Subscribe to auth changes
   useEffect(() => {
@@ -65,6 +65,80 @@ export default function App() {
     return unsubscribe;
   }, []);
 
+  // Initialize and render Google Sign-In button
+  useEffect(() => {
+    if (user) return;
+
+    let isMounted = true;
+    let renderAttempts = 0;
+
+    const initializeGsi = () => {
+      const googleObj = (window as any).google;
+      if (googleObj?.accounts?.id) {
+        if (!clientId) {
+          console.warn("VITE_GOOGLE_CLIENT_ID is not configured.");
+          return;
+        }
+
+        try {
+          googleObj.accounts.id.initialize({
+            client_id: clientId,
+            callback: async (response: any) => {
+              if (!isMounted) return;
+              setLoggingIn(true);
+              setLoginError("");
+              
+              const credential = response.credential;
+              if (credential) {
+                const res = await authStore.login(credential);
+                if (res.ok) {
+                  setLoginError("");
+                  navigateTo("dashboard"); // Automatically navigate to dashboard
+                } else {
+                  setLoginError(res.message);
+                }
+              } else {
+                setLoginError("Failed to obtain ID token credential from Google.");
+              }
+              setLoggingIn(false);
+            },
+            auto_select: false,
+          });
+
+          const container = document.getElementById("google-signin-btn");
+          if (container) {
+            googleObj.accounts.id.renderButton(container, {
+              type: "standard",
+              theme: "filled_blue",
+              size: "large",
+              text: "continue_with",
+              shape: "rectangular",
+              logo_alignment: "left",
+              width: 320,
+            });
+          }
+        } catch (e: any) {
+          console.error("GSI initialization error:", e);
+        }
+      }
+    };
+
+    const checkAndInit = () => {
+      if ((window as any).google?.accounts?.id) {
+        initializeGsi();
+      } else if (renderAttempts < 30) {
+        renderAttempts++;
+        setTimeout(checkAndInit, 200);
+      }
+    };
+
+    checkAndInit();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user, clientId]);
+
   const navigateTo = (view: string, sub?: string, routeParams?: any) => {
     setActiveView(view);
     setSubView(sub || "");
@@ -74,21 +148,6 @@ export default function App() {
 
   const handleDashboardNavigate = (targetView: string, targetSubView?: string) => {
     navigateTo(targetView, targetSubView);
-  };
-
-  const handleLoginSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputToken.trim()) return;
-    setLoggingIn(true);
-    setLoginError("");
-    const res = await authStore.login(inputToken);
-    if (!res.ok) {
-      setLoginError(res.message);
-    } else {
-      setLoginError("");
-      setInputToken("");
-    }
-    setLoggingIn(false);
   };
 
   const handleConnect = (e: React.FormEvent) => {
@@ -169,41 +228,34 @@ export default function App() {
             Authorized Personnel Only — CMMS Cloud Portal
           </p>
 
-          <form onSubmit={handleLoginSubmit} className="w-full space-y-4">
-            <div className="text-left space-y-1.5">
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                Google Identity ID Token (JWT)
-              </label>
-              <textarea
-                rows={4}
-                required
-                value={inputToken}
-                onChange={(e) => setInputToken(e.target.value)}
-                placeholder="Paste your base64 Google ID Token (eyJhbGciOi...)"
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition font-mono leading-normal"
-              />
-            </div>
-
-            {loginError && (
-              <div className="p-3 bg-red-950/40 border border-red-900/50 rounded-lg text-left">
-                <p className="text-[11px] text-red-400 font-bold leading-normal">{loginError}</p>
+          <div className="w-full flex flex-col items-center justify-center py-4">
+            {!clientId ? (
+              <div className="p-4 bg-amber-950/40 border border-amber-900/50 rounded-lg text-left w-full space-y-2">
+                <p className="text-[11px] text-amber-400 font-bold leading-normal">
+                  ⚠️ Google Client ID is Missing
+                </p>
+                <p className="text-[10px] text-slate-400 leading-normal">
+                  Please configure the <code className="bg-slate-950 px-1 py-0.5 rounded text-rose-400 font-mono text-[9px]">VITE_GOOGLE_CLIENT_ID</code> environment variable in your `.env` file or settings to enable secure single-sign-on (SSO).
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4 w-full flex flex-col items-center">
+                {loggingIn ? (
+                  <div className="flex items-center gap-2 py-3 text-xs font-semibold text-slate-400">
+                    <Loader2 className="h-4 w-4 text-indigo-500 animate-spin" />
+                    Authenticating credentials...
+                  </div>
+                ) : (
+                  <div id="google-signin-btn" className="min-h-[44px] flex items-center justify-center w-full"></div>
+                )}
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={loggingIn || !inputToken.trim()}
-              className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold rounded-lg text-xs transition cursor-pointer flex items-center justify-center gap-2"
-            >
-              {loggingIn ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Shield className="h-3.5 w-3.5" />}
-              Authenticate with Google Identity
-            </button>
-          </form>
-
-          <div className="mt-6 pt-5 border-t border-slate-800/80 text-left text-[10px] text-slate-500 leading-relaxed space-y-2">
-            <p className="font-semibold text-slate-400">💡 Testing Guidelines:</p>
-            <p>1. Enter a secure ID Token generated from your Google credentials or OAuth credentials.</p>
-            <p>2. The backend will verify the token's cryptographic integrity against Google's public signature authorities and lookup your email in the <code className="bg-slate-950 px-1 py-0.5 rounded font-mono">USERS</code> Sheet database.</p>
+            {loginError && (
+              <div className="p-3 bg-red-950/40 border border-red-900/50 rounded-lg text-left w-full mt-4">
+                <p className="text-[11px] text-red-400 font-bold leading-normal">{loginError}</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
