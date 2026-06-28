@@ -1,12 +1,7 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useState, useEffect } from "react";
 import { apiClient } from "../api/client";
 import { WorkOrderPriority, WorkOrderRiskLevel, Location, Picklist } from "../types";
-import { Sparkles, ClipboardCheck, ArrowLeft, Loader2, Save, Send } from "lucide-react";
+import { Sparkles, ClipboardCheck, ArrowLeft, Loader2, Save, Send, List, CheckCircle2, AlertTriangle, Clock } from "lucide-react";
 
 interface NewWorkOrderProps {
   initialMojoTicket?: any;
@@ -131,300 +126,347 @@ export default function NewWorkOrderView({ initialMojoTicket, onNavigate }: NewW
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header Back Button */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => onNavigate("work-orders", "all-orders")}
-          className="p-1.5 border border-slate-200 hover:bg-slate-50 rounded-lg text-slate-500 hover:text-slate-800 transition cursor-pointer"
-        >
-          <ArrowLeft className="h-4.5 w-4.5" />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-            {initialMojoTicket ? "Convert Mojo Ticket" : "Raise New Work Order"}
-          </h1>
-          <p className="text-sm text-slate-500">
-            {initialMojoTicket
-              ? `Creating work order referencing ticket ${initialMojoTicket.ticketNumber}.`
-              : "Raise and schedule a new corrective or preventive maintenance request."}
-          </p>
-        </div>
+    <div className="flex h-full w-full">
+      {/* Secondary Sidebar (Contextual) */}
+      <div className="w-[200px] hidden lg:flex flex-col border-r border-[rgba(255,255,255,0.20)] shrink-0 h-[calc(100vh-64px)] p-4 space-y-2 sticky top-0"
+           style={{
+             background: 'linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.20) 100%)',
+             backdropFilter: 'blur(10px)',
+             WebkitBackdropFilter: 'blur(10px)'
+           }}>
+         <h3 className="text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-2 px-3">Views</h3>
+         
+         <button 
+           onClick={() => onNavigate("work-orders", "all-orders")}
+           className="flex items-center gap-2.5 px-3 py-2 rounded text-[13px] font-semibold transition-colors w-full cursor-pointer text-slate-800 hover:bg-white/50"
+         >
+           <List className="h-4 w-4" />
+           All Work Orders
+         </button>
+         
+         <button 
+           onClick={() => onNavigate("work-orders", "open-orders")}
+           className="flex items-center gap-2.5 px-3 py-2 rounded text-[13px] font-semibold transition-colors w-full cursor-pointer text-slate-800 hover:bg-white/50"
+         >
+           <CheckCircle2 className="h-4 w-4" />
+           Open / Active
+         </button>
+
+         <button 
+           onClick={() => onNavigate("work-orders", "overdue")}
+           className="flex items-center gap-2.5 px-3 py-2 rounded text-[13px] font-semibold transition-colors w-full cursor-pointer text-slate-800 hover:bg-white/50"
+         >
+           <AlertTriangle className="h-4 w-4" />
+           SLA Overdue
+         </button>
+
+         <button 
+           onClick={() => onNavigate("work-orders", "pending-review")}
+           className="flex items-center gap-2.5 px-3 py-2 rounded text-[13px] font-semibold transition-colors w-full cursor-pointer text-slate-800 hover:bg-white/50"
+         >
+           <Clock className="h-4 w-4" />
+           Pending Closeout
+         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Standard Form inputs */}
-        <form onSubmit={handleSubmit} className="lg:col-span-2 bg-white rounded-xl border border-slate-100 p-6 shadow-xs space-y-5">
-          {error && (
-            <div className="p-3.5 bg-rose-50 border border-rose-100 rounded-lg text-rose-700 text-xs font-semibold">
-              {error}
-            </div>
-          )}
-
-          {/* Core Info */}
-          <div className="space-y-4">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Core Job Details</h2>
-            <div className="grid grid-cols-1 gap-4">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Work Request Title *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Server Room A split AC unit water leaking"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full text-sm py-2 px-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Detailed Description *</label>
-                <textarea
-                  required
-                  rows={4}
-                  placeholder="Provide precise details, symptoms, equipment asset tags if known, safety hazards, and impact on facility operations."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full text-sm py-2 px-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-            </div>
+      <div className="flex-1 overflow-x-hidden p-6 lg:p-8 space-y-6 max-w-[1240px]">
+        {/* Header Back Button */}
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => onNavigate("work-orders", "all-orders")}
+            className="p-2 border border-slate-200 bg-white hover:bg-slate-50 rounded text-slate-500 hover:text-slate-800 transition cursor-pointer shadow-sm"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <div>
+            <h1 className="text-[20px] font-bold tracking-tight text-slate-800 leading-snug">
+              {initialMojoTicket ? "Convert Mojo Ticket" : "Raise New Work Order"}
+            </h1>
+            <p className="text-[13px] text-slate-500 mt-0.5 font-medium">
+              {initialMojoTicket
+                ? `Creating work order referencing ticket ${initialMojoTicket.ticketNumber}.`
+                : "Raise and schedule a new corrective or preventive maintenance request."}
+            </p>
           </div>
+        </div>
 
-          {/* Classification & Parameters */}
-          <div className="pt-4 border-t border-slate-50 space-y-4">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Classification & Scheduling</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Trade Specialty</label>
-                <select
-                  value={trade}
-                  onChange={(e) => setTrade(e.target.value)}
-                  className="w-full text-sm py-2 px-3 border border-slate-200 rounded-lg bg-white"
-                >
-                  {getPicklistValues("Trade").map((p) => (
-                    <option key={p.id} value={p.value}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column: Standard Form inputs */}
+          <form onSubmit={handleSubmit} className="lg:col-span-2 bg-white rounded-lg border border-slate-200 p-6 shadow-[0_4px_10px_rgba(0,0,0,0.02)] space-y-6">
+            {error && (
+              <div className="p-3.5 bg-red-50 border border-red-200 rounded text-danger text-[13px] font-bold">
+                {error}
               </div>
+            )}
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Category</label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full text-sm py-2 px-3 border border-slate-200 rounded-lg bg-white"
-                >
-                  {getPicklistValues("Category").map((p) => (
-                    <option key={p.id} value={p.value}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {/* Core Info */}
+            <div className="space-y-4">
+              <h2 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Core Job Details</h2>
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-semibold text-slate-700">Work Request Title *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Server Room A split AC unit water leaking"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="w-full text-[14px] py-2 px-3 border border-slate-300 rounded focus:ring-1 focus:ring-primary focus:border-primary focus:outline-none"
+                  />
+                </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Urgency Priority</label>
-                <select
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value as WorkOrderPriority)}
-                  className="w-full text-sm py-2 px-3 border border-slate-200 rounded-lg bg-white font-semibold text-slate-800"
-                >
-                  {Object.values(WorkOrderPriority).map((p) => (
-                    <option key={p} value={p}>
-                      {p} Priority
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Risk Level</label>
-                <select
-                  value={riskLevel}
-                  onChange={(e) => setRiskLevel(e.target.value as WorkOrderRiskLevel)}
-                  className="w-full text-sm py-2 px-3 border border-slate-200 rounded-lg bg-white"
-                >
-                  {Object.values(WorkOrderRiskLevel).map((r) => (
-                    <option key={r} value={r}>
-                      {r} Risk
-                    </option>
-                  ))}
-                </select>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-semibold text-slate-700">Detailed Description *</label>
+                  <textarea
+                    required
+                    rows={4}
+                    placeholder="Provide precise details, symptoms, equipment asset tags if known, safety hazards, and impact on facility operations."
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="w-full text-[14px] py-2 px-3 border border-slate-300 rounded focus:ring-1 focus:ring-primary focus:border-primary focus:outline-none"
+                  />
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Location details */}
-          <div className="pt-4 border-t border-slate-50 space-y-4">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Location Details</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Location Site</label>
-                <select
-                  value={locationId}
-                  onChange={(e) => setLocationId(e.target.value)}
-                  className="w-full text-sm py-2 px-3 border border-slate-200 rounded-lg bg-white"
-                >
-                  {locations.map((loc) => (
-                    <option key={loc.id} value={loc.id}>
-                      {loc.name} - {loc.building} ({loc.room})
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {/* Classification & Parameters */}
+            <div className="pt-5 border-t border-slate-200 space-y-4">
+              <h2 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Classification & Scheduling</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-semibold text-slate-700">Trade Specialty</label>
+                  <select
+                    value={trade}
+                    onChange={(e) => setTrade(e.target.value)}
+                    className="w-full text-[14px] py-2 px-3 border border-slate-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  >
+                    {getPicklistValues("Trade").map((p) => (
+                      <option key={p.id} value={p.value}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Operational Department</label>
-                <select
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
-                  className="w-full text-sm py-2 px-3 border border-slate-200 rounded-lg bg-white"
-                >
-                  <option value="">Select Department</option>
-                  {getPicklistValues("Department").map((p) => (
-                    <option key={p.id} value={p.value}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-semibold text-slate-700">Category</label>
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full text-[14px] py-2 px-3 border border-slate-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  >
+                    {getPicklistValues("Category").map((p) => (
+                      <option key={p.id} value={p.value}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-          {/* Requester Contact */}
-          <div className="pt-4 border-t border-slate-50 space-y-4">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Requester Credentials</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Requester Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. John Doe"
-                  value={requestedBy}
-                  onChange={(e) => setRequestedBy(e.target.value)}
-                  className="w-full text-sm py-2 px-3 border border-slate-200 rounded-lg focus:outline-none"
-                />
-              </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-semibold text-slate-700">Urgency Priority</label>
+                  <select
+                    value={priority}
+                    onChange={(e) => setPriority(e.target.value as WorkOrderPriority)}
+                    className="w-full text-[14px] py-2 px-3 border border-slate-300 rounded bg-white font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  >
+                    {Object.values(WorkOrderPriority).map((p) => (
+                      <option key={p} value={p}>
+                        {p} Priority
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Requester Email</label>
-                <input
-                  type="email"
-                  placeholder="john.doe@ims.com"
-                  value={requestedByEmail}
-                  onChange={(e) => setRequestedByEmail(e.target.value)}
-                  className="w-full text-sm py-2 px-3 border border-slate-200 rounded-lg focus:outline-none"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Phone Hotline</label>
-                <input
-                  type="text"
-                  placeholder="555-019-2831"
-                  value={requestedByPhone}
-                  onChange={(e) => setRequestedByPhone(e.target.value)}
-                  className="w-full text-sm py-2 px-3 border border-slate-200 rounded-lg focus:outline-none"
-                />
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-semibold text-slate-700">Risk Level</label>
+                  <select
+                    value={riskLevel}
+                    onChange={(e) => setRiskLevel(e.target.value as WorkOrderRiskLevel)}
+                    className="w-full text-[14px] py-2 px-3 border border-slate-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  >
+                    {Object.values(WorkOrderRiskLevel).map((r) => (
+                      <option key={r} value={r}>
+                        {r} Risk
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Form Actions */}
-          <div className="pt-5 border-t border-slate-100 flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => onNavigate("work-orders", "all-orders")}
-              className="px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 border border-slate-200 rounded-lg transition cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex items-center gap-2 px-5 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition disabled:opacity-50 shadow-xs cursor-pointer"
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {initialMojoTicket ? "Convert and Save" : "Create Work Order"}
-            </button>
-          </div>
-        </form>
+            {/* Location details */}
+            <div className="pt-5 border-t border-slate-200 space-y-4">
+              <h2 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Location Details</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-semibold text-slate-700">Location Site</label>
+                  <select
+                    value={locationId}
+                    onChange={(e) => setLocationId(e.target.value)}
+                    className="w-full text-[14px] py-2 px-3 border border-slate-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  >
+                    {locations.map((loc) => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.name} - {loc.building} ({loc.room})
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-        {/* Right Column: AI Co-Pilot Assistant */}
-        <div className="space-y-6">
-          <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-xl p-5 text-white shadow-md border border-indigo-950 flex flex-col justify-between space-y-5">
-            <div className="space-y-2">
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold tracking-wider uppercase bg-indigo-500/30 text-indigo-200 px-2 py-0.5 rounded-full border border-indigo-500/20">
-                ⚡ Intelligent Copilot
-              </span>
-              <h2 className="text-lg font-bold">AI Dispatch Classifier</h2>
-              <p className="text-xs text-indigo-200 leading-relaxed">
-                Click analyze below, and the AI will analyze your title and description to automatically recommend the trade, urgency priority, category, and safety risks.
-              </p>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-semibold text-slate-700">Operational Department</label>
+                  <select
+                    value={department}
+                    onChange={(e) => setDepartment(e.target.value)}
+                    className="w-full text-[14px] py-2 px-3 border border-slate-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  >
+                    <option value="">Select Department</option>
+                    {getPicklistValues("Department").map((p) => (
+                      <option key={p.id} value={p.value}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleAiClassification}
-              disabled={aiLoading}
-              className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 bg-white text-indigo-950 hover:bg-indigo-50 active:bg-slate-100 rounded-xl text-xs font-extrabold shadow-sm transition disabled:opacity-50 cursor-pointer"
-            >
-              {aiLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
-              ) : (
-                <Sparkles className="h-4.5 w-4.5 text-indigo-600 fill-indigo-100" />
-              )}
-              {aiLoading ? "Analyzing Fields..." : "Analyze with AI Agent"}
-            </button>
-          </div>
+            {/* Requester Contact */}
+            <div className="pt-5 border-t border-slate-200 space-y-4">
+              <h2 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Requester Credentials</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-semibold text-slate-700">Requester Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. John Doe"
+                    value={requestedBy}
+                    onChange={(e) => setRequestedBy(e.target.value)}
+                    className="w-full text-[14px] py-2 px-3 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  />
+                </div>
 
-          {/* AI Suggestions Results */}
-          {aiResult && (
-            <div className="bg-white rounded-xl border border-indigo-100 p-5 shadow-xs space-y-4 animate-fade-in">
-              <div className="flex items-center justify-between border-b border-slate-50 pb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">AI Recommendations</span>
-                <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600">
-                  <ClipboardCheck className="h-4 w-4" />
-                  {Math.round(aiResult.confidence * 100)}% Confidence
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-semibold text-slate-700">Requester Email</label>
+                  <input
+                    type="email"
+                    placeholder="john.doe@ims.com"
+                    value={requestedByEmail}
+                    onChange={(e) => setRequestedByEmail(e.target.value)}
+                    className="w-full text-[14px] py-2 px-3 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-semibold text-slate-700">Phone Hotline</label>
+                  <input
+                    type="text"
+                    placeholder="555-019-2831"
+                    value={requestedByPhone}
+                    onChange={(e) => setRequestedByPhone(e.target.value)}
+                    className="w-full text-[14px] py-2 px-3 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Form Actions */}
+            <div className="pt-6 border-t border-slate-200 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => onNavigate("work-orders", "all-orders")}
+                className="px-4 py-2 text-[14px] font-semibold text-slate-700 hover:bg-slate-50 border border-slate-300 rounded transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex items-center gap-2 px-5 py-2 text-[14px] font-bold text-white bg-primary hover:bg-indigo-700 rounded transition disabled:opacity-50 shadow-sm cursor-pointer"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {initialMojoTicket ? "Convert and Save" : "Create Work Order"}
+              </button>
+            </div>
+          </form>
+
+          {/* Right Column: AI Co-Pilot Assistant */}
+          <div className="space-y-6">
+            <div className="bg-gradient-to-br from-navy-900 to-navy-800 rounded-lg p-5 text-white shadow-lg border border-navy-800 flex flex-col justify-between space-y-5 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4 opacity-10">
+                <Sparkles className="h-24 w-24" />
+              </div>
+              <div className="space-y-2 relative z-10">
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-widest uppercase bg-indigo-500/20 text-indigo-300 px-2.5 py-0.5 rounded border border-indigo-500/20">
+                  <Sparkles className="h-3 w-3" /> Intelligent Copilot
                 </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="space-y-0.5">
-                  <span className="text-slate-400 font-semibold">Trade Specialty</span>
-                  <p className="font-bold text-slate-800">{aiResult.trade}</p>
-                </div>
-                <div className="space-y-0.5">
-                  <span className="text-slate-400 font-semibold">Priority</span>
-                  <p className="font-bold text-rose-600">{aiResult.priority}</p>
-                </div>
-                <div className="space-y-0.5">
-                  <span className="text-slate-400 font-semibold">Category</span>
-                  <p className="font-bold text-slate-800">{aiResult.category}</p>
-                </div>
-                <div className="space-y-0.5">
-                  <span className="text-slate-400 font-semibold">Risk Level</span>
-                  <p className="font-bold text-slate-800">{aiResult.riskLevel}</p>
-                </div>
-              </div>
-
-              <div className="p-3 bg-slate-50 border border-slate-100 rounded-lg text-xs leading-relaxed text-slate-600">
-                <strong className="text-slate-700 block mb-1">Reasoning Analysis:</strong>
-                {aiResult.reasoning}
+                <h2 className="text-[18px] font-bold">AI Dispatch Classifier</h2>
+                <p className="text-[13px] text-indigo-200 leading-relaxed">
+                  Click analyze below, and the AI will analyze your title and description to automatically recommend the trade, urgency priority, category, and safety risks.
+                </p>
               </div>
 
               <button
                 type="button"
-                onClick={applyAiSuggestions}
-                className="w-full py-2 px-3 border border-indigo-200 text-indigo-700 bg-indigo-50/50 hover:bg-indigo-50 text-xs font-bold rounded-lg transition text-center cursor-pointer"
+                onClick={handleAiClassification}
+                disabled={aiLoading}
+                className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 bg-white text-navy-900 hover:bg-indigo-50 active:bg-slate-100 rounded text-[13px] font-bold shadow-sm transition disabled:opacity-50 cursor-pointer relative z-10"
               >
-                Apply AI Suggestions to Form
+                {aiLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                ) : (
+                  <Sparkles className="h-4 w-4 text-primary" />
+                )}
+                {aiLoading ? "Analyzing Fields..." : "Analyze with AI Agent"}
               </button>
             </div>
-          )}
+
+            {/* AI Suggestions Results */}
+            {aiResult && (
+              <div className="bg-white rounded-lg border border-indigo-200 p-5 shadow-[0_4px_10px_rgba(0,0,0,0.02)] space-y-4 animate-in fade-in">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <span className="text-[12px] font-bold uppercase tracking-wider text-slate-500">AI Recommendations</span>
+                  <span className="inline-flex items-center gap-1.5 text-[12px] font-bold text-success bg-green-50 px-2 py-1 rounded">
+                    <ClipboardCheck className="h-4 w-4" />
+                    {Math.round(aiResult.confidence * 100)}% Confidence
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-[13px]">
+                  <div className="space-y-1">
+                    <span className="text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Trade Specialty</span>
+                    <p className="font-bold text-slate-800">{aiResult.trade}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Priority</span>
+                    <p className="font-bold text-danger">{aiResult.priority}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Category</span>
+                    <p className="font-bold text-slate-800">{aiResult.category}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Risk Level</span>
+                    <p className="font-bold text-slate-800">{aiResult.riskLevel}</p>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded text-[13px] leading-relaxed text-slate-700">
+                  <strong className="text-slate-800 block mb-1">Reasoning Analysis:</strong>
+                  {aiResult.reasoning}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={applyAiSuggestions}
+                  className="w-full py-2 px-3 border border-indigo-200 text-primary bg-indigo-50/50 hover:bg-indigo-50 text-[13px] font-bold rounded transition text-center cursor-pointer"
+                >
+                  Apply AI Suggestions to Form
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

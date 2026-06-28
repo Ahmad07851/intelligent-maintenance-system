@@ -1,12 +1,7 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useEffect, useState } from "react";
 import { apiClient } from "../api/client";
 import { MojoTicket } from "../types";
-import { FileText, Inbox, ClipboardList, ArrowRight, Ban, RefreshCw, Layers } from "lucide-react";
+import { Inbox, ClipboardList, ArrowRight, Ban, RefreshCw, Layers } from "lucide-react";
 
 interface MojoIntakeViewProps {
   onNavigate: (view: string, subView?: string, params?: any) => void;
@@ -57,8 +52,8 @@ export default function MojoIntakeView({ onNavigate }: MojoIntakeViewProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      <div className="flex items-center justify-center h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary border-t-transparent"></div>
       </div>
     );
   }
@@ -67,20 +62,20 @@ export default function MojoIntakeView({ onNavigate }: MojoIntakeViewProps) {
   const processedTickets = tickets.filter((t) => t.status !== "Pending");
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-[1440px] mx-auto p-6 md:p-8">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-100 pb-5">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Mojo Dispatch Intake</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-[24px] font-bold tracking-tight text-slate-800">Mojo Dispatch Intake</h1>
+          <p className="text-[14px] text-slate-500 mt-1">
             Triage raw helpdesk reports, audit duplication, and convert approved tickets to operational Work Orders.
           </p>
         </div>
         <button
           onClick={handleRefresh}
-          className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition cursor-pointer"
+          className="flex items-center gap-2 px-4 py-2 text-[14px] font-semibold text-slate-700 bg-white border border-slate-200 rounded hover:bg-slate-50 transition shadow-sm cursor-pointer"
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+          <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin text-slate-400" : ""}`} />
           Refresh Inbound Feed
         </button>
       </div>
@@ -89,15 +84,19 @@ export default function MojoIntakeView({ onNavigate }: MojoIntakeViewProps) {
         {/* Left Column: Active Triage Queue */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Triage Queue ({pendingTickets.length})</h2>
-            {refreshing && <span className="text-[10px] font-semibold text-slate-400">Updating feed...</span>}
+            <h2 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Triage Queue ({pendingTickets.length})</h2>
+            {refreshing && <span className="text-[11px] font-semibold text-slate-400">Updating feed...</span>}
           </div>
 
           {pendingTickets.length === 0 ? (
-            <div className="bg-white rounded-xl border border-slate-100 p-12 text-center space-y-3">
-              <Inbox className="h-10 w-10 text-slate-300 mx-auto" />
-              <h3 className="text-sm font-bold text-slate-800">Triage Queue Empty</h3>
-              <p className="text-xs text-slate-400">No new inbound Helpdesk tickets awaiting processing.</p>
+            <div className="bg-white rounded-lg border border-slate-200 p-12 text-center space-y-4 shadow-[0_4px_10px_rgba(0,0,0,0.02)]">
+              <div className="h-16 w-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto border border-slate-100">
+                <Inbox className="h-8 w-8 text-slate-300" />
+              </div>
+              <div>
+                <h3 className="text-[16px] font-bold text-slate-800">Triage Queue Empty</h3>
+                <p className="text-[14px] text-slate-500 mt-1">No new inbound Helpdesk tickets awaiting processing.</p>
+              </div>
             </div>
           ) : (
             pendingTickets.map((ticket) => {
@@ -107,43 +106,43 @@ export default function MojoIntakeView({ onNavigate }: MojoIntakeViewProps) {
               return (
                 <div
                   key={ticket.id}
-                  className="bg-white rounded-xl border border-slate-100 shadow-2xs hover:shadow-xs p-5 space-y-4"
+                  className="bg-white rounded-lg border border-slate-200 shadow-[0_4px_10px_rgba(0,0,0,0.02)] hover:shadow-md p-5 space-y-4 transition"
                 >
                   <div className="flex items-start justify-between gap-4">
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-[10px] font-black tracking-wider uppercase text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
+                        <span className="font-mono text-[11px] font-bold tracking-wider uppercase text-slate-500 bg-slate-50 px-2.5 py-0.5 rounded border border-slate-200">
                           {ticket.ticketNumber}
                         </span>
                         {isPotentialDuplicate && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 animate-pulse">
-                            <Layers className="h-3 w-3" /> Potential Duplicate Warning
+                          <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-danger bg-red-50 px-2.5 py-0.5 rounded border border-red-100 animate-pulse">
+                            <Layers className="h-3.5 w-3.5" /> Potential Duplicate Warning
                           </span>
                         )}
                       </div>
-                      <h3 className="text-sm font-bold text-slate-900 leading-snug">{ticket.title}</h3>
-                      <p className="text-xs text-slate-500 leading-relaxed whitespace-pre-wrap">{ticket.description}</p>
+                      <h3 className="text-[16px] font-bold text-slate-800 leading-snug">{ticket.title}</h3>
+                      <p className="text-[14px] text-slate-600 leading-relaxed whitespace-pre-wrap">{ticket.description}</p>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-4 border-t border-slate-50 text-xs text-slate-400">
+                  <div className="flex items-center justify-between pt-4 border-t border-slate-100 text-[13px] text-slate-500">
                     <div className="space-y-0.5">
-                      <p className="font-semibold text-slate-700">Requested By: {ticket.requestedBy}</p>
-                      <p className="text-[10px]">{ticket.location} • {new Date(ticket.createdAt).toLocaleString()}</p>
+                      <p className="font-bold text-slate-700">Requested By: {ticket.requestedBy}</p>
+                      <p className="text-[12px]">{ticket.location} • {new Date(ticket.createdAt).toLocaleString()}</p>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2.5">
                       <button
                         onClick={() => handleIgnore(ticket.id)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg text-xs font-semibold transition cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded text-[13px] font-semibold transition cursor-pointer"
                       >
-                        <Ban className="h-3.5 w-3.5" /> Ignore
+                        <Ban className="h-4 w-4" /> Ignore
                       </button>
                       <button
                         onClick={() => handleConvert(ticket)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-extrabold transition cursor-pointer shadow-2xs"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-indigo-700 text-white rounded text-[13px] font-bold transition cursor-pointer shadow-sm"
                       >
-                        Convert to Work Order <ArrowRight className="h-3.5 w-3.5" />
+                        Convert to Work Order <ArrowRight className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
@@ -155,26 +154,26 @@ export default function MojoIntakeView({ onNavigate }: MojoIntakeViewProps) {
 
         {/* Right Column: Intake Processing Audit (Processed WOs history) */}
         <div className="space-y-4">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Converted History ({processedTickets.length})</h2>
+          <h2 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Converted History ({processedTickets.length})</h2>
 
-          <div className="bg-white rounded-xl border border-slate-100 p-5 shadow-xs space-y-4 max-h-[500px] overflow-y-auto">
+          <div className="bg-white rounded-lg border border-slate-200 p-5 shadow-[0_4px_10px_rgba(0,0,0,0.02)] space-y-4 max-h-[600px] overflow-y-auto">
             {processedTickets.length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-6">No processed history found.</p>
+              <div className="py-8 text-center text-[13px] text-slate-400 font-medium">No processed history found.</div>
             ) : (
               processedTickets.map((t) => (
-                <div key={t.id} className="text-xs space-y-2 pb-3 border-b border-slate-50 last:border-0 last:pb-0">
+                <div key={t.id} className="text-[13px] space-y-2 pb-4 border-b border-slate-100 last:border-0 last:pb-0">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-[10px] font-semibold text-slate-400">{t.ticketNumber}</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                      t.status === "Converted" ? "bg-teal-50 text-teal-700" : "bg-slate-100 text-slate-500"
+                    <span className="font-mono text-[11px] font-bold text-slate-500">{t.ticketNumber}</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                      t.status === "Converted" ? "bg-green-50 text-success border border-green-100" : "bg-slate-50 text-slate-500 border border-slate-200"
                     }`}>
                       {t.status}
                     </span>
                   </div>
-                  <p className="font-bold text-slate-800 line-clamp-1">{t.title}</p>
+                  <p className="font-bold text-slate-800 line-clamp-2 leading-tight">{t.title}</p>
                   {t.convertedWoNumber && (
-                    <p className="text-[10px] text-indigo-600 font-semibold flex items-center gap-1">
-                      <ClipboardList className="h-3.5 w-3.5" />
+                    <p className="text-[12px] text-primary font-semibold flex items-center gap-1.5">
+                      <ClipboardList className="h-4 w-4" />
                       Converted: {t.convertedWoNumber}
                     </p>
                   )}
