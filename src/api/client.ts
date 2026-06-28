@@ -31,11 +31,28 @@ class ApiClient {
 
   public getAppsScriptUrl(): string {
     try {
-      return localStorage.getItem("ims_apps_script_url") || (import.meta as any).env?.VITE_APPS_SCRIPT || "";
+      const storedUrl = localStorage.getItem("ims_apps_script_url");
+      if (storedUrl) return storedUrl;
     } catch (e) {
       console.warn("localStorage is blocked or unavailable:", e);
-      return (import.meta as any).env?.VITE_APPS_SCRIPT || "";
     }
+
+    const envUrl = (import.meta as any).env?.VITE_APPS_SCRIPT || "";
+    if (envUrl) return envUrl;
+
+    if (typeof window !== "undefined") {
+      try {
+        const currentUrl = new URL(window.location.href);
+        if (
+          currentUrl.hostname.includes("script.google.com") &&
+          currentUrl.pathname.includes("/macros/")
+        ) {
+          return currentUrl.origin + currentUrl.pathname;
+        }
+      } catch (e) {}
+    }
+
+    return "";
   }
 
   public updateAppsScriptUrl(url: string): void {
