@@ -164,9 +164,13 @@ export default function App() {
   };
 
   const appsScriptUrl = apiClient.getAppsScriptUrl();
+  const isAppsScriptRuntime =
+    typeof window !== "undefined" &&
+    window.location.hostname.includes("script.google.com") &&
+    window.location.pathname.includes("/macros/");
 
   // 1. Connection check
-  if (!appsScriptUrl) {
+  if (!appsScriptUrl && !isAppsScriptRuntime) {
     return (
       <div className="min-h-screen bg-navy-900 flex flex-col items-center justify-center p-6 text-center font-sans">
         <div className="max-w-md w-full bg-white rounded-lg p-8 shadow-[0_16px_40px_rgba(15,23,42,0.16)] border border-slate-200 flex flex-col items-center">
