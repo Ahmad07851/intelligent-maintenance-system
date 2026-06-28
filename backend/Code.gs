@@ -10,17 +10,9 @@
  * Handles Web App GET requests. Displays instructions since only POST is used as the API gateway.
  */
 function doGet(e) {
-  var statusPayload = {
-    status: "online",
-    service: "Intelligent CMMS Apps Script Backend API",
-    mode: "JSON API Gateway",
-    timestamp: new Date().toISOString(),
-    supportedMethods: ["POST"],
-    info: "Please configure your React application to use this Web App URL for dynamic database transactions."
-  };
-  
-  return ContentService.createTextOutput(JSON.stringify(statusPayload))
-                       .setMimeType(ContentService.MimeType.JSON);
+  return HtmlService.createHtmlOutputFromFile('Index')
+    .setTitle('Intelligent Maintenance System')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 /**
