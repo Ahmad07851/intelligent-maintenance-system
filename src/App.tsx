@@ -52,7 +52,6 @@ export default function App() {
   // Sign-in state
   const [loginError, setLoginError] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
-  const clientId = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || "";
 
   // Subscribe to auth changes
   useEffect(() => {
@@ -68,85 +67,29 @@ export default function App() {
     return unsubscribe;
   }, []);
 
-  // Initialize and render Google Sign-In button
-  useEffect(() => {
-    if (user) return;
-
-    let isMounted = true;
-    let renderAttempts = 0;
-
-    const initializeGsi = () => {
-      const googleObj = (window as any).google;
-      if (googleObj?.accounts?.id) {
-        if (!clientId) {
-          console.warn("VITE_GOOGLE_CLIENT_ID is not configured.");
-          return;
-        }
-
-        try {
-          googleObj.accounts.id.initialize({
-            client_id: clientId,
-            callback: async (response: any) => {
-              if (!isMounted) return;
-              setLoggingIn(true);
-              setLoginError("");
-              
-              const credential = response.credential;
-              if (credential) {
-                const res = await authStore.login(credential);
-                if (res.ok) {
-                  setLoginError("");
-                  navigateTo("dashboard"); // Automatically navigate to dashboard
-                } else {
-                  setLoginError(res.message);
-                }
-              } else {
-                setLoginError("Failed to obtain ID token credential from Google.");
-              }
-              setLoggingIn(false);
-            },
-            auto_select: false,
-          });
-
-          const container = document.getElementById("google-signin-btn");
-          if (container) {
-            googleObj.accounts.id.renderButton(container, {
-              type: "standard",
-              theme: "outline",
-              size: "large",
-              text: "continue_with",
-              shape: "rectangular",
-              logo_alignment: "center",
-              width: 320,
-            });
-          }
-        } catch (e: any) {
-          console.error("GSI initialization error:", e);
-        }
-      }
-    };
-
-    const checkAndInit = () => {
-      if ((window as any).google?.accounts?.id) {
-        initializeGsi();
-      } else if (renderAttempts < 30) {
-        renderAttempts++;
-        setTimeout(checkAndInit, 200);
-      }
-    };
-
-    checkAndInit();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [user, clientId]);
+  // Apps Script session authentication is handled by the backend.
 
   const navigateTo = (view: string, sub?: string, routeParams?: any) => {
     setActiveView(view);
     setSubView(sub || "");
     setParams(routeParams || null);
     setMobileMenuOpen(false);
+  };
+
+  const handleInternalLogin = async () => {
+    setLoggingIn(true);
+    setLoginError("");
+
+    const res = await authStore.login("");
+
+    if (res.ok) {
+      setLoginError("");
+      navigateTo("dashboard");
+    } else {
+      setLoginError(res.message);
+    }
+
+    setLoggingIn(false);
   };
 
   const handleDashboardNavigate = (targetView: string, targetSubView?: string) => {
@@ -237,27 +180,26 @@ export default function App() {
           </p>
 
           <div className="w-full flex flex-col items-center justify-center pb-2">
-            {!clientId ? (
-              <div className="p-4 bg-red-50 border border-red-100 rounded-lg text-left w-full space-y-2">
-                <p className="text-[13px] text-danger font-semibold leading-normal">
-                  Google Client ID is Missing
-                </p>
-                <p className="text-[12px] text-slate-600 leading-normal">
-                  Configure <code className="bg-white px-1 py-0.5 rounded text-danger font-mono text-[11px] border border-slate-200">VITE_GOOGLE_CLIENT_ID</code> to enable secure SSO.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4 w-full flex flex-col items-center">
-                {loggingIn ? (
-                  <div className="flex items-center justify-center gap-2 h-[44px] text-[13px] font-semibold text-slate-500">
-                    <Loader2 className="h-4 w-4 text-primary animate-spin" />
-                    Authenticating...
-                  </div>
-                ) : (
-                  <div id="google-signin-btn" className="min-h-[44px] flex items-center justify-center w-full"></div>
-                )}
-              </div>
-            )}
+            <div className="space-y-4 w-full flex flex-col items-center">
+              {loggingIn ? (
+                <div className="flex items-center justify-center gap-2 h-[44px] text-[13px] font-semibold text-slate-500">
+                  <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                  Authenticating...
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleInternalLogin}
+                  className="w-full h-11 bg-primary hover:bg-indigo-700 text-white font-semibold rounded text-[14px] transition flex items-center justify-center cursor-pointer"
+                >
+                  Continue to System
+                </button>
+              )}
+
+              <p className="text-[12px] text-slate-500 leading-normal">
+                Access is verified using your current Google Workspace session.
+              </p>
+            </div>
 
             {loginError && (
               <div className="p-3 bg-red-50 border border-red-100 rounded text-left w-full mt-4">

@@ -14,6 +14,7 @@ export class AuthStore {
 
   public async initialize(): Promise<void> {
     this.isInitializing = true;
+
     const appsScriptUrl = apiClient.getAppsScriptUrl();
     if (!appsScriptUrl) {
       this.isInitializing = false;
@@ -21,63 +22,50 @@ export class AuthStore {
       return;
     }
 
-    const token = apiClient.getIdToken();
-    if (!token) {
-      this.isInitializing = false;
-      this.notify();
-      return;
-    }
+    apiClient.setIdToken("");
 
     try {
-      // Direct handshake to authenticate the Google ID Token and retrieve user details
       const res = await apiClient.request<User & { permissions: string[] }>("auth.me");
+
       if (res.ok && res.data) {
         this.session = res.data;
-        
-        // Also fetch user directory for supervisor/admin dropdowns if authorized
+
         const resUsers = await apiClient.request<User[]>("users.list");
         if (resUsers.ok && resUsers.data) {
           this.users = resUsers.data;
         }
       } else {
-        // Token is invalid/expired or unregistered
-        this.logout();
+        this.session = null;
       }
     } catch (err) {
-      console.error("Failed to initialize Google session from CMMS backend:", err);
-      this.logout();
+      console.error("Failed to initialize Apps Script session from CMMS backend:", err);
+      this.session = null;
     } finally {
       this.isInitializing = false;
       this.notify();
     }
   }
 
-  public async login(idToken: string): Promise<{ ok: boolean; message: string }> {
-    if (!idToken || idToken.trim().split('.').length !== 3) {
-      return { ok: false, message: "Invalid Google ID Token format. Must be a valid secure JWT." };
-    }
+  public async login(idToken: string = ""): Promise<{ ok: boolean; message: string }> {
+    apiClient.setIdToken("");
 
-    apiClient.setIdToken(idToken.trim());
-    
     try {
       const res = await apiClient.request<User & { permissions: string[] }>("auth.me");
+
       if (res.ok && res.data) {
         this.session = res.data;
-        
-        // Fetch active users list for directories
+
         const resUsers = await apiClient.request<User[]>("users.list");
         if (resUsers.ok && resUsers.data) {
           this.users = resUsers.data;
         }
-        
+
         this.notify();
         return { ok: true, message: "Successfully logged in." };
-      } else {
-        apiClient.setIdToken("");
-        return { ok: false, message: res.message || "Unrecognized credentials. Please verify your account setup." };
       }
+
+      return { ok: false, message: res.message || "Access denied." };
     } catch (err: any) {
-      apiClient.setIdToken("");
       return { ok: false, message: err.message || "Failed to contact backend authorization service." };
     }
   }
