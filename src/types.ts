@@ -19,8 +19,10 @@ export enum WorkOrderStatus {
 
 export enum WorkOrderPriority {
   Low = "Low",
+  Routine = "Routine",
   Medium = "Medium",
   High = "High",
+  Emergency = "Emergency",
   Critical = "Critical",
 }
 
