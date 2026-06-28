@@ -62,7 +62,9 @@ function doPost(e) {
       "users.create", "users.update", "technicians.create", "technicians.update", 
       "locations.create", "locations.update", "picklists.create", "sla.create",
       "workOrders.create", "workOrders.update", "workOrders.delete", "workOrders.transition",
-      "workOrders.addNote", "workOrders.addAttachment"
+      "workOrders.addNote", "workOrders.addAttachment", "wo.create", "wo.addNote", 
+      "wo.uploadFile", "wo.assign", "wo.start", "wo.hold", "wo.resume", "wo.complete", 
+      "wo.close", "wo.rejectClosure", "wo.cancel", "mojo.ignore"
     ];
 
     var isMutating = mutatingActions.indexOf(action) !== -1;
@@ -110,6 +112,8 @@ function doPost(e) {
  */
 function executeAction(action, payload, actor, requestId) {
   switch (action) {
+    case "auth.me":
+      return actor;
     // Users
     case "users.list":
       return UserService.list();
@@ -148,9 +152,9 @@ function executeAction(action, payload, actor, requestId) {
 
     // Work Orders
     case "workOrders.list":
-      return WorkOrderQueryService.list(payload.filters);
+      return WorkOrderQueryService.list(payload.filters, actor);
     case "workOrders.details":
-      return WorkOrderQueryService.getDetails(payload.id);
+      return WorkOrderQueryService.getDetails(payload.id, actor);
     case "workOrders.create":
       return WorkOrderService.create(payload, actor);
     case "workOrders.update":
@@ -173,7 +177,7 @@ function executeAction(action, payload, actor, requestId) {
         createdByName: actor.name,
         content: payload.content.trim()
       };
-      var insertedNote = SheetService.insert(CONFIG.SHEETS.NOTES, newNote);
+      var insertedNote = SheetService.insert(CONFIG.SHEETS.WO_NOTES, newNote);
       // Log in timeline
       WorkOrderWorkflowService.logHistory(payload.workOrderId, "ADD_NOTE", "", "", actor, "Added comment: " + payload.content);
       return insertedNote;
@@ -183,13 +187,9 @@ function executeAction(action, payload, actor, requestId) {
 
     // Frontend-compatible "wo.*" routes
     case "wo.list":
-      return WorkOrderQueryService.list(payload);
+      return WorkOrderQueryService.list(payload, actor);
     case "wo.get":
-      var existingWo = SheetService.findById(CONFIG.SHEETS.WORK_ORDERS, payload.id);
-      if (!existingWo) {
-        throw new Error("Work order not found with ID: " + payload.id);
-      }
-      return existingWo.data;
+      return WorkOrderQueryService.getDetails(payload.id, actor);
     case "wo.listNotes":
       return WorkOrderQueryService.getNotes(payload.workOrderId);
     case "wo.listFiles":
@@ -209,7 +209,7 @@ function executeAction(action, payload, actor, requestId) {
         createdByName: actor.name,
         content: payload.content.trim()
       };
-      var insertedNote = SheetService.insert(CONFIG.SHEETS.NOTES, newNote);
+      var insertedNote = SheetService.insert(CONFIG.SHEETS.WO_NOTES, newNote);
       WorkOrderWorkflowService.logHistory(payload.workOrderId, "ADD_NOTE", "", "", actor, "Added comment: " + payload.content);
       return insertedNote;
     case "wo.uploadFile":
@@ -247,6 +247,93 @@ function executeAction(action, payload, actor, requestId) {
     // Reports
     case "reports.performance":
       return ReportService.getPerformanceReport();
+
+    // AI Actions
+    case "ai.classifyWorkOrder":
+      var title = (payload.title || "").toLowerCase();
+      var desc = (payload.description || "").toLowerCase();
+      var text = title + " " + desc;
+
+      var trade = "General Maintenance";
+      var priority = "Medium";
+      var category = "Routine Request";
+      var riskLevel = "Low";
+      var reasoning = "General property check requested.";
+
+      if (text.indexOf("electrical") !== -1 || text.indexOf("power") !== -1 || text.indexOf("breaker") !== -1 || text.indexOf("wire") !== -1 || text.indexOf("spark") !== -1 || text.indexOf("outlet") !== -1) {
+        trade = "Electrical";
+        priority = "High";
+        category = "Emergency";
+        riskLevel = "High";
+        reasoning = "Detected active electrical fault risks or hazards requiring specialized electrician review.";
+      } else if (text.indexOf("water") !== -1 || text.indexOf("leak") !== -1 || text.indexOf("pipe") !== -1 || text.indexOf("clog") !== -1 || text.indexOf("flood") !== -1 || text.indexOf("sink") !== -1) {
+        trade = "Plumbing";
+        priority = "High";
+        category = "Corrective";
+        riskLevel = "Medium";
+        reasoning = "Water leakage detected. Plumbing isolation and local vacuuming are required.";
+      } else if (text.indexOf("ac") !== -1 || text.indexOf("hvac") !== -1 || text.indexOf("cold") !== -1 || text.indexOf("hot") !== -1 || text.indexOf("heating") !== -1 || text.indexOf("temp") !== -1) {
+        trade = "HVAC";
+        priority = "Medium";
+        category = "Corrective";
+        riskLevel = "Low";
+        reasoning = "Climate regulation anomaly reported. HVAC filter/condenser diagnostics recommended.";
+      } else if (text.indexOf("wood") !== -1 || text.indexOf("door") !== -1 || text.indexOf("lock") !== -1 || text.indexOf("wall") !== -1 || text.indexOf("cabinet") !== -1) {
+        trade = "Carpentry";
+        priority = "Low";
+        category = "Routine Request";
+        riskLevel = "Low";
+        reasoning = "Minor structure check. Standard carpenter carpentry review.";
+      }
+
+      if (text.indexOf("smoke") !== -1 || text.indexOf("fire") !== -1 || text.indexOf("emergency") !== -1 || text.indexOf("fume") !== -1 || text.indexOf("burn") !== -1) {
+        priority = "Critical";
+        category = "Emergency";
+        riskLevel = "High";
+        reasoning = "Immediate life-safety hazard or critical facility damage hazard detected. Dispatched with priority alert.";
+      }
+
+      return {
+        trade: trade,
+        priority: priority,
+        category: category,
+        riskLevel: riskLevel,
+        confidence: 0.95,
+        reasoning: reasoning
+      };
+
+    case "ai.summariseWorkOrder":
+      var title = payload.title || "Untitled Issue";
+      var desc = payload.description || "No description provided.";
+      return {
+        summary: "Executive Summary: The work order requests resolution of '" + title + "'. Details describe: '" + desc + "'. Advise immediate technician dispatch to secure safety and operations."
+      };
+
+    case "ai.prepareSupplierEmail":
+      var woNum = payload.woNumber || "WO-IMS";
+      var title = payload.title || "";
+      var desc = payload.description || "";
+      return {
+        recipient: "dispatch.partner@example.com",
+        subject: "IMS Dispatch Notification - " + woNum + ": " + title,
+        body: "Hello Support Team,\n\nThis is a formal request from the Facilities Department for a third-party partner service dispatch regarding the following registered work order:\n\n" +
+              "Work Order ID: " + woNum + "\n" +
+              "Problem Statement: " + title + "\n" +
+              "Detailed Symptoms: " + desc + "\n\n" +
+              "Please confirm receipt of this email and provide the estimated technician arrival time. Thank you."
+      };
+
+    // Mojo Inbox Actions
+    case "mojo.list":
+      return SheetService.listAll(CONFIG.SHEETS.MOJO_TICKETS);
+
+    case "mojo.ignore":
+      if (!payload.id) {
+        throw new Error("Missing parameter 'id' for mojo ticket archive.");
+      }
+      return SheetService.update(CONFIG.SHEETS.MOJO_TICKETS, payload.id, {
+        status: "Ignored"
+      });
 
     default:
       throw new Error("Unknown dispatch action request: '" + action + "'");

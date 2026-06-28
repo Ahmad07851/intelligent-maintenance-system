@@ -27,7 +27,7 @@ var AttachmentService = {
       createdBy: actor.email
     };
 
-    var result = SheetService.insert(CONFIG.SHEETS.ATTACHMENTS, newFile);
+    var result = SheetService.insert(CONFIG.SHEETS.WO_FILES, newFile);
 
     // Save historical log of files uploaded
     WorkOrderWorkflowService.logHistory(

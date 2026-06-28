@@ -6,7 +6,7 @@
 import React, { useEffect, useState } from "react";
 import { apiClient } from "../api/client";
 import { User, AuditLog, SystemLog } from "../types";
-import { Shield, Settings, Activity, Terminal, Clipboard, Copy, Check, Save, HelpCircle, Loader2 } from "lucide-react";
+import { Shield, Settings, Activity, Terminal, Save, CheckCircle, XCircle, Loader2 } from "lucide-react";
 
 export default function AdministrationView() {
   const [users, setUsers] = useState<User[]>([]);
@@ -17,24 +17,40 @@ export default function AdministrationView() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Apps Script Settings state
+  // Connection settings state
   const [appsScriptUrl, setAppsScriptUrl] = useState("");
   const [savedSettings, setSavedSettings] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<"Checking" | "Connected" | "Disconnected">("Checking");
+  const [connectionMessage, setConnectionMessage] = useState("");
 
   // Audit search terms
   const [searchAudit, setSearchAudit] = useState("");
 
+  const checkConnection = async (url: string) => {
+    if (!url) {
+      setConnectionStatus("Disconnected");
+      setConnectionMessage("Apps Script URL is empty. Please configure the connection URL.");
+      return;
+    }
+    setConnectionStatus("Checking");
+    try {
+      const res = await apiClient.request("users.list");
+      if (res.ok) {
+        setConnectionStatus("Connected");
+        setConnectionMessage("Successfully connected to live Sheets database.");
+      } else {
+        setConnectionStatus("Disconnected");
+        setConnectionMessage(res.message || "Failed to establish a valid API handshake.");
+      }
+    } catch (e: any) {
+      setConnectionStatus("Disconnected");
+      setConnectionMessage(e.message || "Network exception during connection verification.");
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
-    const resUsers = await apiClient.request("users.list");
-    if (resUsers.ok && resUsers.data) setUsers(resUsers.data);
-
-    const resAudit = await apiClient.request("auditLog.list");
-    if (resAudit.ok && resAudit.data) setAuditLogs(resAudit.data);
-
-    const resSys = await apiClient.request("systemLog.list");
-    if (resSys.ok && resSys.data) setSystemLogs(resSys.data);
-
+    
     // Retrieve active connection url from localStorage
     let savedUrl = "";
     try {
@@ -44,6 +60,16 @@ export default function AdministrationView() {
     }
     setAppsScriptUrl(savedUrl);
 
+    const resUsers = await apiClient.request("users.list");
+    if (resUsers.ok && resUsers.data) setUsers(resUsers.data);
+
+    const resAudit = await apiClient.request("auditLog.list");
+    if (resAudit.ok && resAudit.data) setAuditLogs(resAudit.data);
+
+    const resSys = await apiClient.request("systemLog.list");
+    if (resSys.ok && resSys.data) setSystemLogs(resSys.data);
+
+    await checkConnection(savedUrl);
     setLoading(false);
   };
 
@@ -59,35 +85,18 @@ export default function AdministrationView() {
       console.warn("localStorage is blocked or unavailable:", e);
     }
     apiClient.updateAppsScriptUrl(appsScriptUrl.trim());
-    setTimeout(() => {
+    setTimeout(async () => {
       setSavedSettings(false);
-      alert("Apps Script Backend Connection URL updated successfully! Refreshing APIs...");
-      loadData();
+      alert("Apps Script Backend Connection URL updated successfully!");
+      await checkConnection(appsScriptUrl.trim());
+      // Reload lists with the new connection
+      const resUsers = await apiClient.request("users.list");
+      if (resUsers.ok && resUsers.data) setUsers(resUsers.data);
+      const resAudit = await apiClient.request("auditLog.list");
+      if (resAudit.ok && resAudit.data) setAuditLogs(resAudit.data);
+      const resSys = await apiClient.request("systemLog.list");
+      if (resSys.ok && resSys.data) setSystemLogs(resSys.data);
     }, 800);
-  };
-
-  const handleCopyCode = (id: string, code: string) => {
-    try {
-      if (navigator?.clipboard?.writeText) {
-        navigator.clipboard.writeText(code);
-        alert("Google Apps Script code copied to clipboard!");
-        return;
-      }
-    } catch (e) {}
-
-    try {
-      const textArea = document.createElement("textarea");
-      textArea.value = code;
-      textArea.style.position = "fixed";
-      textArea.style.opacity = "0";
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textArea);
-      alert("Google Apps Script code copied to clipboard!");
-    } catch (err) {
-      alert("Failed to copy code automatically. Please select and copy the code manually.");
-    }
   };
 
   if (loading) {
@@ -106,53 +115,6 @@ export default function AdministrationView() {
       log.details.toLowerCase().includes(searchAudit.toLowerCase())
   );
 
-  // Complete compliant Google Apps Script Google Sheets JSON backend code
-  const appsScriptBackendCode = `/**
- * Google Apps Script JSON API backend for Intelligent Maintenance System (IMS)
- * Mapped to standard Google Sheets.
- */
-
-const SHEET_ID = "YOUR_GOOGLE_SHEET_ID_HERE"; // Leave blank or fill to override
-
-function doPost(e) {
-  try {
-    const postData = JSON.parse(e.postData.contents);
-    const action = postData.action;
-    const payload = postData.payload || {};
-    
-    // Process request mapping
-    const result = handleAction(action, payload);
-    
-    return ContentService.createTextOutput(JSON.stringify({
-      ok: true,
-      data: result
-    })).setMimeType(ContentService.MimeType.JSON);
-    
-  } catch(error) {
-    return ContentService.createTextOutput(JSON.stringify({
-      ok: false,
-      message: error.toString()
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
-function doGet(e) {
-  return ContentService.createTextOutput(JSON.stringify({
-    ok: true,
-    message: "IMS API Backend running. Use POST endpoints."
-  })).setMimeType(ContentService.MimeType.JSON);
-}
-
-function handleAction(action, payload) {
-  // Implement CRUD and workflow routing in the Sheets Database...
-  switch(action) {
-    case "dashboard.get":
-      return { openOrdersCount: 5, overdueCount: 1, pendingReviewCount: 2, completedThisWeekCount: 4, slaBreachRate: 8, recentActivity: [] };
-    default:
-      throw new Error("Action " + action + " not supported on backend.");
-  }
-}`;
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -160,7 +122,7 @@ function handleAction(action, payload) {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">System Administration</h1>
           <p className="text-sm text-slate-500">
-            Manage security picklists, audit logs, and paste your Google Apps Script Web App URL to wire the live database.
+            Configure backend connection bindings, view authorized user scopes, and inspect active logs.
           </p>
         </div>
       </div>
@@ -232,14 +194,14 @@ function handleAction(action, payload) {
                       <td className="py-3 px-3 font-semibold text-slate-900">{usr.name}</td>
                       <td className="py-3 px-3 font-mono text-slate-500">{usr.email}</td>
                       <td className="py-3 px-3">
-                        <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-bold">
+                        <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-bold text-[10px]">
                           {usr.role}
                         </span>
                       </td>
                       <td className="py-3 px-3 text-slate-500">{usr.tradeSpecialty || "None (Administrative)"}</td>
                       <td className="py-3 px-3">
                         <div className="flex flex-wrap gap-1 max-w-sm">
-                          {usr.permissions.map((p) => (
+                          {(usr.permissions || []).map((p) => (
                             <span key={p} className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-[9px] font-semibold">
                               {p.replace("PERM_", "")}
                             </span>
@@ -255,68 +217,63 @@ function handleAction(action, payload) {
         )}
 
         {activeSubTab === "settings" && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 text-xs leading-relaxed">
-            {/* Connection configuration input */}
-            <div className="space-y-5">
-              <div className="space-y-1">
-                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wide">Live Sheets API Binding</h2>
-                <p className="text-slate-500 leading-relaxed">
-                  Provide your deployed Google Apps Script Web App URL below to instantly swap the internal localStorage sandbox with your live spreadsheet database.
-                </p>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="font-bold text-slate-700">Google Apps Script Web App Deployment URL</label>
-                <input
-                  type="text"
-                  value={appsScriptUrl}
-                  onChange={(e) => setAppsScriptUrl(e.target.value)}
-                  placeholder="e.g. https://script.google.com/macros/s/AKfycb.../exec"
-                  className="w-full text-xs py-2.5 px-3.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white"
-                />
-              </div>
-
-              <button
-                onClick={handleSaveSettings}
-                disabled={savedSettings}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold transition cursor-pointer shadow-2xs"
-              >
-                {savedSettings ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                Save Active Connection Url
-              </button>
-
-              <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl space-y-3.5">
-                <h3 className="font-bold text-slate-800 flex items-center gap-1.5">
-                  <HelpCircle className="h-4 w-4 text-indigo-600" />
-                  How to setup Google Sheets database?
-                </h3>
-                <ol className="list-decimal list-inside space-y-2 text-slate-600">
-                  <li>Create a new <strong>Google Sheet</strong> in your Google Drive.</li>
-                  <li>Click Extensions &gt; <strong>Apps Script</strong>.</li>
-                  <li>Delete all placeholder code and paste the code template from the right.</li>
-                  <li>Click <strong>Deploy &gt; New Deployment</strong>.</li>
-                  <li>Select <strong>Web App</strong>. Set "Execute as" to "Me" and "Who has access" to "Anyone".</li>
-                  <li>Click Deploy, approve scopes, and copy the Web App URL. Paste it above and Save!</li>
-                </ol>
-              </div>
+          <div className="max-w-2xl space-y-6 text-xs leading-relaxed">
+            <div className="space-y-1">
+              <h2 className="text-base font-bold text-slate-900">Live Sheets API Binding</h2>
+              <p className="text-slate-500 leading-relaxed">
+                Provide your deployed Google Apps Script Web App URL below to connect the React frontend with your live spreadsheet database.
+              </p>
             </div>
 
-            {/* Code copy block */}
-            <div className="space-y-3.5">
-              <div className="flex items-center justify-between border-b border-slate-50 pb-2">
-                <h2 className="font-bold text-slate-900 uppercase">Apps Script Code Template</h2>
-                <button
-                  onClick={() => handleCopyCode("script", appsScriptBackendCode)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 border border-slate-200 hover:bg-slate-50 rounded-lg font-semibold text-slate-600 cursor-pointer"
-                >
-                  <Copy className="h-3.5 w-3.5" /> Copy Code
-                </button>
-              </div>
-
-              <pre className="p-4 bg-slate-950 text-slate-200 rounded-xl overflow-x-auto max-h-[400px] font-mono text-[10px] leading-relaxed select-all">
-                {appsScriptBackendCode}
-              </pre>
+            <div className="p-4 rounded-xl border bg-slate-50 border-slate-100 flex items-start gap-3">
+              {connectionStatus === "Connected" && (
+                <>
+                  <CheckCircle className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="font-bold text-emerald-800 text-sm">Status: Database Connected</h3>
+                    <p className="text-slate-500 font-medium mt-1">{connectionMessage}</p>
+                  </div>
+                </>
+              )}
+              {connectionStatus === "Disconnected" && (
+                <>
+                  <XCircle className="h-5 w-5 text-rose-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="font-bold text-rose-800 text-sm">Status: Disconnected</h3>
+                    <p className="text-slate-500 font-medium mt-1">{connectionMessage}</p>
+                  </div>
+                </>
+              )}
+              {connectionStatus === "Checking" && (
+                <>
+                  <Loader2 className="h-5 w-5 text-indigo-600 animate-spin flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="font-bold text-indigo-800 text-sm">Status: Verifying Connection...</h3>
+                    <p className="text-slate-500 font-medium mt-1">Contacting the Google Apps Script Web App endpoint.</p>
+                  </div>
+                </>
+              )}
             </div>
+
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-700 block">Google Apps Script Web App Deployment URL</label>
+              <input
+                type="text"
+                value={appsScriptUrl}
+                onChange={(e) => setAppsScriptUrl(e.target.value)}
+                placeholder="e.g. https://script.google.com/macros/s/AKfycb.../exec"
+                className="w-full text-xs py-2.5 px-3.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white font-mono"
+              />
+            </div>
+
+            <button
+              onClick={handleSaveSettings}
+              disabled={savedSettings}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold transition cursor-pointer shadow-2xs"
+            >
+              {savedSettings ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              Save & Test Connection
+            </button>
           </div>
         )}
 
@@ -326,7 +283,7 @@ function handleAction(action, payload) {
               <div>
                 <h2 className="text-base font-bold text-slate-900">Historical Operations Logs</h2>
                 <p className="text-xs text-slate-500 leading-relaxed mt-1">
-                  Pristine chronological log tracing security sessions, status dispatches, SLA compliance, and database mutations.
+                  Chronological log tracing security sessions, status dispatches, SLA compliance, and database mutations.
                 </p>
               </div>
 

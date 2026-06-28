@@ -3,21 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// Global variable for current logged in user details
-let currentUserEmail = "ahmadarafat51@gmail.com"; // Matches Ahmad Arafat
-
-export function getCurrentUserEmail(): string {
-  return currentUserEmail;
-}
-
-export function setCurrentUserEmail(email: string): void {
-  currentUserEmail = email;
-}
-
-// Reset Local Database (Stub to prevent breaking imports)
+// Reset Local Database
 export function resetLocalDatabase(): void {
   try {
     localStorage.removeItem("ims_apps_script_url");
+    sessionStorage.removeItem("ims_google_id_token");
   } catch (e) {
     console.warn("localStorage is blocked or unavailable:", e);
   }
@@ -37,8 +27,9 @@ export interface ApiResponse<T = any> {
 }
 
 class ApiClient {
+  private idToken: string = "";
+
   public getAppsScriptUrl(): string {
-    // Check local storage setting first, then fallback to environment variable
     try {
       return localStorage.getItem("ims_apps_script_url") || (import.meta as any).env?.VITE_APPS_SCRIPT || "";
     } catch (e) {
@@ -56,7 +47,23 @@ class ApiClient {
   }
 
   public getIdToken(): string {
-    return (import.meta as any).env?.VITE_USER_EMAIL || "ahmadarafat51@gmail.com";
+    if (this.idToken) return this.idToken;
+    try {
+      return sessionStorage.getItem("ims_google_id_token") || "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  public setIdToken(token: string): void {
+    this.idToken = token;
+    try {
+      if (token) {
+        sessionStorage.setItem("ims_google_id_token", token);
+      } else {
+        sessionStorage.removeItem("ims_google_id_token");
+      }
+    } catch (e) {}
   }
 
   // Unified request interface
@@ -73,7 +80,7 @@ class ApiClient {
         meta: {
           requestId,
           timestamp: new Date().toISOString(),
-          actor: currentUserEmail,
+          actor: "anonymous",
         },
       };
     }
@@ -100,26 +107,6 @@ class ApiClient {
       }
 
       const json = await response.json();
-      
-      const ROLE_PERMISSIONS: Record<string, string[]> = {
-        "System Owner": ["PERM_ALL", "PERM_WO_CREATE", "PERM_WO_UPDATE", "PERM_WO_ASSIGN", "PERM_WO_START_HOLD", "PERM_WO_REVIEW", "PERM_WO_CANCEL", "PERM_ADMIN", "PERM_REPORTS"],
-        "Facilities Manager": ["PERM_WO_CREATE", "PERM_WO_UPDATE", "PERM_WO_ASSIGN", "PERM_WO_START_HOLD", "PERM_WO_REVIEW", "PERM_WO_CANCEL", "PERM_REPORTS"],
-        "Supervisor": ["PERM_WO_CREATE", "PERM_WO_UPDATE", "PERM_WO_ASSIGN", "PERM_WO_START_HOLD", "PERM_WO_REVIEW", "PERM_WO_CANCEL"],
-        "Coordinator": ["PERM_WO_CREATE", "PERM_WO_UPDATE", "PERM_WO_ASSIGN"],
-        "Technician": ["PERM_WO_START_HOLD"],
-        "Requester": ["PERM_WO_CREATE"],
-        "Viewer": []
-      };
-
-      if (json.ok && json.data) {
-        if (action === "users.list" && Array.isArray(json.data)) {
-          json.data = json.data.map((user: any) => ({
-            ...user,
-            permissions: ROLE_PERMISSIONS[user.role] || []
-          }));
-        }
-      }
-
       return json as ApiResponse<T>;
     } catch (err: any) {
       console.error(`Apps Script direct API failed for action "${action}":`, err);
@@ -130,7 +117,7 @@ class ApiClient {
         meta: {
           requestId,
           timestamp: new Date().toISOString(),
-          actor: currentUserEmail,
+          actor: "anonymous",
         },
       };
     }

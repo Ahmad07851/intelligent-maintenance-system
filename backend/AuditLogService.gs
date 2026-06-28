@@ -13,7 +13,7 @@ var AuditLogService = {
   logAction: function(action, actor, details, requestId) {
     try {
       var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID || SpreadsheetApp.getActiveSpreadsheet().getId());
-      var sheet = ss.getSheetByName(CONFIG.SHEETS.AUDIT_LOGS);
+      var sheet = ss.getSheetByName(CONFIG.SHEETS.AUDIT_LOG);
       if (!sheet) return;
 
       var id = "AUD-" + new Date().getTime() + "-" + Math.floor(1000 + Math.random() * 9000);
@@ -34,6 +34,6 @@ var AuditLogService = {
   },
 
   list: function() {
-    return SheetService.listAll(CONFIG.SHEETS.AUDIT_LOGS);
+    return SheetService.listAll(CONFIG.SHEETS.AUDIT_LOG);
   }
 };

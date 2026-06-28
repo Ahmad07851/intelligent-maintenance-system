@@ -4,52 +4,81 @@
  */
 
 import { User } from "../types";
-import { setCurrentUserEmail, apiClient } from "../api/client";
+import { apiClient } from "../api/client";
 
 export class AuthStore {
   private listeners: (() => void)[] = [];
+  private session: (User & { permissions: string[] }) | null = null;
   private users: User[] = [];
-  private session: User & { permissions: string[] } = {
-    id: "",
-    email: "",
-    name: "Loading...",
-    role: "Viewer",
-    isActive: true,
-    rowVersion: 1,
-    permissions: []
-  };
-
-  constructor() {
-    setCurrentUserEmail(apiClient.getIdToken());
-  }
+  private isInitializing: boolean = true;
 
   public async initialize(): Promise<void> {
+    this.isInitializing = true;
     const appsScriptUrl = apiClient.getAppsScriptUrl();
     if (!appsScriptUrl) {
+      this.isInitializing = false;
+      this.notify();
+      return;
+    }
+
+    const token = apiClient.getIdToken();
+    if (!token) {
+      this.isInitializing = false;
+      this.notify();
       return;
     }
 
     try {
-      const res = await apiClient.request<User[]>("users.list");
+      // Direct handshake to authenticate the Google ID Token and retrieve user details
+      const res = await apiClient.request<User & { permissions: string[] }>("auth.me");
       if (res.ok && res.data) {
-        this.users = res.data;
-        const actorEmail = res.meta?.actor || apiClient.getIdToken();
-        const found = this.users.find((u) => u.email.toLowerCase() === actorEmail.toLowerCase());
+        this.session = res.data;
         
-        if (found) {
-          const enrichedUser = found as User & { permissions?: string[] };
-          this.session = {
-            ...found,
-            permissions: enrichedUser.permissions || []
-          };
-          setCurrentUserEmail(found.email);
-        } else {
-          console.error(`Authenticated actor ${actorEmail} is not registered in the system.`);
+        // Also fetch user directory for supervisor/admin dropdowns if authorized
+        const resUsers = await apiClient.request<User[]>("users.list");
+        if (resUsers.ok && resUsers.data) {
+          this.users = resUsers.data;
         }
-        this.notify();
+      } else {
+        // Token is invalid/expired or unregistered
+        this.logout();
       }
     } catch (err) {
-      console.error("Failed to initialize authStore from backend", err);
+      console.error("Failed to initialize Google session from CMMS backend:", err);
+      this.logout();
+    } finally {
+      this.isInitializing = false;
+      this.notify();
+    }
+  }
+
+  public async login(idToken: string): Promise<{ ok: boolean; message: string }> {
+    if (!idToken || idToken.trim().split('.').length !== 3) {
+      return { ok: false, message: "Invalid Google ID Token format. Must be a valid secure JWT." };
+    }
+
+    apiClient.setIdToken(idToken.trim());
+    
+    try {
+      const res = await apiClient.request<User & { permissions: string[] }>("auth.me");
+      if (res.ok && res.data) {
+        this.session = res.data;
+        
+        // Fetch active users list for directories
+        const resUsers = await apiClient.request<User[]>("users.list");
+        if (resUsers.ok && resUsers.data) {
+          this.users = resUsers.data;
+        }
+        
+        this.notify();
+        return { ok: true, message: "Successfully logged in." };
+      } else {
+        apiClient.setIdToken("");
+        return { ok: false, message: res.message || "Unrecognized credentials. Please verify your account setup." };
+      }
+    } catch (err: any) {
+      apiClient.setIdToken("");
+      return { ok: false, message: err.message || "Failed to contact backend authorization service." };
     }
   }
 
@@ -64,7 +93,15 @@ export class AuthStore {
     this.listeners.forEach((listener) => listener());
   }
 
-  public getCurrentUser(): User {
+  public isAuthenticated(): boolean {
+    return this.session !== null;
+  }
+
+  public getInitializing(): boolean {
+    return this.isInitializing;
+  }
+
+  public getCurrentUser(): (User & { permissions: string[] }) | null {
     return this.session;
   }
 
@@ -73,22 +110,16 @@ export class AuthStore {
   }
 
   public hasPermission(permission: string): boolean {
-    return this.session.permissions.includes("PERM_ALL") || this.session.permissions.includes(permission);
+    if (!this.session) return false;
+    const perms = this.session.permissions || [];
+    return perms.includes("PERM_ALL") || perms.includes(permission);
   }
 
   public logout(): void {
-    this.session = {
-      id: "",
-      email: "",
-      name: "Loading...",
-      role: "Viewer",
-      isActive: true,
-      rowVersion: 1,
-      permissions: []
-    };
+    apiClient.setIdToken("");
+    this.session = null;
     this.notify();
   }
 }
 
 export const authStore = new AuthStore();
-

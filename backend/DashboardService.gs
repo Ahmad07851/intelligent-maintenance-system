@@ -126,7 +126,7 @@ var DashboardService = {
     // Get last 10 audit logs for recentActivity
     var recentActivity = [];
     try {
-      var allLogs = SheetService.listAll(CONFIG.SHEETS.AUDIT_LOGS) || [];
+      var allLogs = SheetService.listAll(CONFIG.SHEETS.AUDIT_LOG) || [];
       allLogs.sort(function(a, b) {
         return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
       });

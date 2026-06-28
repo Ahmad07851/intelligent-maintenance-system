@@ -22,6 +22,17 @@ var WorkOrderWorkflowService = {
       throw new Error("Cannot modify a deleted work order.");
     }
 
+    // Enforce role-scoping on workflow transitions
+    if (actor) {
+      if (actor.role === CONFIG.ROLES.TECHNICIAN) {
+        if (wo.assignedTo !== actor.email) {
+          throw new Error("Forbidden: You are only permitted to perform transitions on work orders assigned to you.");
+        }
+      } else if (actor.role === CONFIG.ROLES.REQUESTER) {
+        throw new Error("Forbidden: Requesters are not permitted to execute status transitions.");
+      }
+    }
+
     // Verify row version match
     if (payload.rowVersion !== undefined && Number(payload.rowVersion) !== Number(wo.rowVersion)) {
       throw new Error("Concurrency Conflict: Work order has been modified by another process. Please refresh the page.");
@@ -189,7 +200,7 @@ var WorkOrderWorkflowService = {
    */
   logHistory: function(woId, action, fromStatus, toStatus, actor, notes) {
     var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID || SpreadsheetApp.getActiveSpreadsheet().getId());
-    var sheet = ss.getSheetByName(CONFIG.SHEETS.HISTORY);
+    var sheet = ss.getSheetByName(CONFIG.SHEETS.WO_HISTORY);
     if (!sheet) return;
 
     var id = "HIST-" + new Date().getTime() + "-" + Math.floor(1000 + Math.random() * 9000);

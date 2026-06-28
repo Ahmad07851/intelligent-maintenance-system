@@ -10,7 +10,7 @@ var WorkOrderQueryService = {
   /**
    * Lists all non-deleted work orders.
    */
-  list: function(filters) {
+  list: function(filters, actor) {
     var raw = SheetService.listAll(CONFIG.SHEETS.WORK_ORDERS);
     var results = [];
 
@@ -18,6 +18,21 @@ var WorkOrderQueryService = {
       var item = raw[i];
       if (item.isDeleted === true || item.isDeleted === "true") {
         continue;
+      }
+
+      // Enforce actor role-based filtering:
+      if (actor) {
+        if (actor.role === CONFIG.ROLES.TECHNICIAN) {
+          // Technicians can only see work orders assigned to them
+          if (item.assignedTo !== actor.email) {
+            continue;
+          }
+        } else if (actor.role === CONFIG.ROLES.REQUESTER) {
+          // Requesters can only see work orders they requested or created
+          if (item.requestedByEmail !== actor.email && item.createdBy !== actor.email) {
+            continue;
+          }
+        }
       }
 
       // Filter applications
@@ -46,7 +61,7 @@ var WorkOrderQueryService = {
   /**
    * Assembles work order details, notes, and attachment metadata.
    */
-  getDetails: function(id) {
+  getDetails: function(id, actor) {
     var existing = SheetService.findById(CONFIG.SHEETS.WORK_ORDERS, id);
     if (!existing) {
       throw new Error("Work order details not found for ID: " + id);
@@ -55,6 +70,19 @@ var WorkOrderQueryService = {
     var wo = existing.data;
     if (wo.isDeleted === true || wo.isDeleted === "true") {
       throw new Error("Cannot query details of a deleted work order.");
+    }
+
+    // Enforce actor role-based read checks:
+    if (actor) {
+      if (actor.role === CONFIG.ROLES.TECHNICIAN) {
+        if (wo.assignedTo !== actor.email) {
+          throw new Error("Forbidden: You are only permitted to view work orders assigned to you.");
+        }
+      } else if (actor.role === CONFIG.ROLES.REQUESTER) {
+        if (wo.requestedByEmail !== actor.email && wo.createdBy !== actor.email) {
+          throw new Error("Forbidden: You are only permitted to view your own work order requests.");
+        }
+      }
     }
 
     // Gather relative entries
@@ -74,7 +102,7 @@ var WorkOrderQueryService = {
    * Queries related notes.
    */
   getNotes: function(woId) {
-    var all = SheetService.listAll(CONFIG.SHEETS.NOTES);
+    var all = SheetService.listAll(CONFIG.SHEETS.WO_NOTES);
     var filtered = [];
     for (var i = 0; i < all.length; i++) {
       if (all[i].workOrderId === woId) {
@@ -92,7 +120,7 @@ var WorkOrderQueryService = {
    * Queries related attachments.
    */
   getAttachments: function(woId) {
-    var all = SheetService.listAll(CONFIG.SHEETS.ATTACHMENTS);
+    var all = SheetService.listAll(CONFIG.SHEETS.WO_FILES);
     var filtered = [];
     for (var i = 0; i < all.length; i++) {
       if (all[i].workOrderId === woId) {
@@ -106,7 +134,7 @@ var WorkOrderQueryService = {
    * Queries relative timeline.
    */
   getHistory: function(woId) {
-    var all = SheetService.listAll(CONFIG.SHEETS.HISTORY);
+    var all = SheetService.listAll(CONFIG.SHEETS.WO_HISTORY);
     var filtered = [];
     for (var i = 0; i < all.length; i++) {
       if (all[i].workOrderId === woId) {

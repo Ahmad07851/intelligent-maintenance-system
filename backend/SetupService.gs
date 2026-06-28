@@ -9,18 +9,21 @@
 var SetupService = {
   /**
    * Main bootstrap entry point. Creates all required sheets if not existing, formats columns,
-   * and seeds initial system data (such as Ahmad Arafat as the System Owner).
+   * and seeds initial system data securely.
    */
   bootstrap: function() {
     var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID || SpreadsheetApp.getActiveSpreadsheet().getId());
     
-    // Define exact tables with their headers
+    // Define exact tables with their headers for all 20 required tables plus Mojo Tickets
     var schemaDefinitions = [
+      { name: CONFIG.SHEETS.APP_SETTINGS, headers: ["id", "key", "value", "description"] },
       { name: CONFIG.SHEETS.USERS, headers: ["id", "email", "name", "role", "isActive", "rowVersion"] },
-      { name: CONFIG.SHEETS.LOCATIONS, headers: ["id", "name", "building", "floor", "room", "rowVersion"] },
+      { name: CONFIG.SHEETS.ROLES, headers: ["id", "name", "description"] },
+      { name: CONFIG.SHEETS.PERMISSIONS, headers: ["id", "name", "description"] },
+      { name: CONFIG.SHEETS.ROLE_PERMISSIONS, headers: ["id", "role", "permission"] },
       { name: CONFIG.SHEETS.PICKLISTS, headers: ["id", "category", "value", "label"] },
+      { name: CONFIG.SHEETS.LOCATIONS, headers: ["id", "name", "building", "floor", "room", "rowVersion"] },
       { name: CONFIG.SHEETS.TECHNICIANS, headers: ["id", "name", "email", "specialty", "status", "currentWorkload", "rowVersion"] },
-      { name: CONFIG.SHEETS.SLA_RULES, headers: ["id", "priority", "riskLevel", "trade", "targetHours", "escalationHours", "requiresReview"] },
       { name: CONFIG.SHEETS.WORK_ORDERS, headers: [
         "id", "rowVersion", "isDeleted", "sourceModule", "lastAction", "createdAt", "createdBy", 
         "updatedAt", "updatedBy", "actorEmail", "actorRole", "actorName", "woNumber", "title", 
@@ -30,13 +33,18 @@ var SetupService = {
         "slaBreached", "startedAt", "completedAt", "closedAt", "cancelledAt", "cancellationReason", 
         "completionNotes", "closureNotes", "requiresReview", "reviewStatus", "reviewActor", "reviewAt"
       ]},
-      { name: CONFIG.SHEETS.NOTES, headers: ["id", "workOrderId", "createdAt", "createdBy", "createdByName", "content"] },
-      { name: CONFIG.SHEETS.ATTACHMENTS, headers: ["id", "workOrderId", "fileName", "fileSize", "fileType", "driveUrl", "createdAt", "createdBy"] },
-      { name: CONFIG.SHEETS.HISTORY, headers: ["id", "workOrderId", "action", "statusFrom", "statusTo", "createdAt", "createdBy", "notes"] },
-      { name: CONFIG.SHEETS.MOJO_TICKETS, headers: ["id", "ticketNumber", "title", "description", "requestedBy", "requestedByEmail", "location", "createdAt", "status", "convertedWoNumber"] },
-      { name: CONFIG.SHEETS.AUDIT_LOGS, headers: ["id", "action", "timestamp", "actor", "details", "requestId"] },
+      { name: CONFIG.SHEETS.WO_NOTES, headers: ["id", "workOrderId", "createdAt", "createdBy", "createdByName", "content"] },
+      { name: CONFIG.SHEETS.WO_FILES, headers: ["id", "workOrderId", "fileName", "fileSize", "fileType", "driveUrl", "createdAt", "createdBy"] },
+      { name: CONFIG.SHEETS.WO_HISTORY, headers: ["id", "workOrderId", "action", "statusFrom", "statusTo", "createdAt", "createdBy", "notes"] },
+      { name: CONFIG.SHEETS.WO_ASSIGNMENTS, headers: ["id", "workOrderId", "assignedTo", "assignedAt", "assignedBy", "status"] },
+      { name: CONFIG.SHEETS.WO_REVIEWS, headers: ["id", "workOrderId", "reviewedBy", "reviewedAt", "rating", "comments"] },
+      { name: CONFIG.SHEETS.SLA_RULES, headers: ["id", "priority", "riskLevel", "trade", "targetHours", "escalationHours", "requiresReview"] },
+      { name: CONFIG.SHEETS.NOTIFICATIONS, headers: ["id", "recipientEmail", "title", "content", "createdAt", "isRead"] },
+      { name: CONFIG.SHEETS.DASHBOARD_CACHE, headers: ["id", "metricKey", "metricValue", "updatedAt"] },
       { name: CONFIG.SHEETS.SYSTEM_LOGS, headers: ["id", "errorType", "message", "timestamp", "stackTrace", "requestId"] },
-      { name: CONFIG.SHEETS.IDEMPOTENCY_KEYS, headers: ["id", "key", "responseJson", "createdAt"] }
+      { name: CONFIG.SHEETS.AUDIT_LOG, headers: ["id", "action", "timestamp", "actor", "details", "requestId"] },
+      { name: CONFIG.SHEETS.IDEMPOTENCY_KEYS, headers: ["id", "key", "responseJson", "createdAt"] },
+      { name: CONFIG.SHEETS.MOJO_TICKETS, headers: ["id", "ticketNumber", "title", "description", "requestedBy", "requestedByEmail", "location", "createdAt", "status", "convertedWoNumber"] }
     ];
 
     for (var i = 0; i < schemaDefinitions.length; i++) {
@@ -64,25 +72,47 @@ var SetupService = {
     // Seed data if empty
     this.seedDefaultData(ss);
     
-    return "Bootstrapped CMMS databases with " + schemaDefinitions.length + " schemas successfully.";
+    return "Bootstrapped CMMS databases with all 20 required schemas successfully.";
   },
 
   /**
    * Seeds default users, picklists, locations, technicians, and SLA rules.
    */
   seedDefaultData: function(ss) {
-    // Seed Users
+    // Seed APP_SETTINGS
+    var settingsSheet = ss.getSheetByName(CONFIG.SHEETS.APP_SETTINGS);
+    if (settingsSheet.getLastRow() <= 1) {
+      var settings = [
+        ["STG-001", "system_name", "Intelligent Maintenance System", "The display title of this CMMS installation"],
+        ["STG-002", "allow_guest_registration", "false", "If true, non-whitelisted users can request basic portal roles"]
+      ];
+      settingsSheet.getRange(2, 1, settings.length, 4).setValues(settings);
+    }
+
+    // Seed ROLES
+    var rolesSheet = ss.getSheetByName(CONFIG.SHEETS.ROLES);
+    if (rolesSheet.getLastRow() <= 1) {
+      var rolesList = [
+        ["R-1", "System Owner", "Full root system access and administrative rights"],
+        ["R-2", "Supervisor", "General operational assignment and review authorization"],
+        ["R-3", "Technician", "Can perform maintenance, adjust assignment states and hold statuses"],
+        ["R-4", "Facilities Manager", "SLA tracking, reports generation, and reviews"],
+        ["R-5", "Requester", "Can create requests and view their status"]
+      ];
+      rolesSheet.getRange(2, 1, rolesList.length, 3).setValues(rolesList);
+    }
+
+    // Seed Users (excluding any personal hardcoded emails!)
     var userSheet = ss.getSheetByName(CONFIG.SHEETS.USERS);
     if (userSheet.getLastRow() <= 1) {
       var users = [
-        ["U-001", "ahmadarafat51@gmail.com", "Ahmad Arafat", "System Owner", "true", "1"],
-        ["U-002", "supervisor@ims.com", "Sarah Jenkins", "Supervisor", "true", "1"],
-        ["U-003", "tech.electrical@ims.com", "Marcus Sparks", "Technician", "true", "1"],
-        ["U-004", "tech.hvac@ims.com", "Linda Frost", "Technician", "true", "1"],
-        ["U-005", "tech.plumbing@ims.com", "David Drain", "Technician", "true", "1"],
-        ["U-006", "coordinator@ims.com", "Tariq Mahmood", "Coordinator", "true", "1"],
-        ["U-007", "manager@ims.com", "Emily Vance", "Facilities Manager", "true", "1"],
-        ["U-008", "requester@ims.com", "John Doe", "Requester", "true", "1"]
+        ["U-002", "sarah.jenkins@example.com", "Sarah Jenkins", "Supervisor", "true", "1"],
+        ["U-003", "marcus.sparks@example.com", "Marcus Sparks", "Technician", "true", "1"],
+        ["U-004", "linda.frost@example.com", "Linda Frost", "Technician", "true", "1"],
+        ["U-005", "david.drain@example.com", "David Drain", "Technician", "true", "1"],
+        ["U-006", "tariq.mahmood@example.com", "Tariq Mahmood", "Coordinator", "true", "1"],
+        ["U-007", "emily.vance@example.com", "Emily Vance", "Facilities Manager", "true", "1"],
+        ["U-008", "john.doe@example.com", "John Doe", "Requester", "true", "1"]
       ];
       userSheet.getRange(2, 1, users.length, 6).setValues(users);
     }
@@ -133,11 +163,11 @@ var SetupService = {
     var techSheet = ss.getSheetByName(CONFIG.SHEETS.TECHNICIANS);
     if (techSheet.getLastRow() <= 1) {
       var techs = [
-        ["TECH-001", "Marcus Sparks", "tech.electrical@ims.com", "Electrical", "Active", "0", "1"],
-        ["TECH-002", "Linda Frost", "tech.hvac@ims.com", "HVAC", "Active", "0", "1"],
-        ["TECH-003", "David Drain", "tech.plumbing@ims.com", "Plumbing", "Active", "0", "1"],
-        ["TECH-004", "Aris Carpenter", "tech.carpenter@ims.com", "Carpentry", "On Leave", "0", "1"],
-        ["TECH-005", "Sarah Handy", "tech.general@ims.com", "General Maintenance", "Active", "0", "1"]
+        ["TECH-001", "Marcus Sparks", "marcus.sparks@example.com", "Electrical", "Active", "0", "1"],
+        ["TECH-002", "Linda Frost", "linda.frost@example.com", "HVAC", "Active", "0", "1"],
+        ["TECH-003", "David Drain", "david.drain@example.com", "Plumbing", "Active", "0", "1"],
+        ["TECH-004", "Aris Carpenter", "aris.carpenter@example.com", "Carpentry", "On Leave", "0", "1"],
+        ["TECH-005", "Sarah Handy", "sarah.handy@example.com", "General Maintenance", "Active", "0", "1"]
       ];
       techSheet.getRange(2, 1, techs.length, 7).setValues(techs);
     }
@@ -156,12 +186,12 @@ var SetupService = {
       slaSheet.getRange(2, 1, rules.length, 7).setValues(rules);
     }
 
-    // Seed Mojo Tickets (just preloaded to triage)
+    // Seed Mojo Tickets
     var mojoSheet = ss.getSheetByName(CONFIG.SHEETS.MOJO_TICKETS);
     if (mojoSheet.getLastRow() <= 1) {
       var tickets = [
-        ["MJ-001", "MJ-9021", "Chemical fumes smell in Basement Lab", "A strong sweet chemical odor is reported near the fume hood in Basement Chemical Lab 02. Need immediate exhaust vent fan check.", "Lab Tech Charlie", "charlie.lab@ims.com", "R&D Facility - Basement Lab", "2026-06-27T14:30:00Z", "Pending", ""],
-        ["MJ-002", "MJ-9022", "Leaking sink in Building B Conference Room", "Sink in the kitchenette of Conf Room 204 is leaking at the U-joint below. Water is pooling in the cabinet.", "Emily Vance", "manager@ims.com", "Main HQ - Building B - 2nd Floor", "2026-06-27T16:15:00Z", "Pending", ""]
+        ["MJ-001", "MJ-9021", "Chemical fumes smell in Basement Lab", "A strong sweet chemical odor is reported near the fume hood in Basement Chemical Lab 02. Need immediate exhaust vent fan check.", "Lab Tech Charlie", "charlie.lab@example.com", "R&D Facility - Basement Lab", "2026-06-27T14:30:00Z", "Pending", ""],
+        ["MJ-002", "MJ-9022", "Leaking sink in Building B Conference Room", "Sink in the kitchenette of Conf Room 204 is leaking at the U-joint below. Water is pooling in the cabinet.", "Emily Vance", "emily.vance@example.com", "Main HQ - Building B - 2nd Floor", "2026-06-27T16:15:00Z", "Pending", ""]
       ];
       mojoSheet.getRange(2, 1, tickets.length, 10).setValues(tickets);
     }

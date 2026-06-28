@@ -11,21 +11,29 @@ var CONFIG = {
   // If blank, it binds to the Active Spreadsheet containing the script.
   SPREADSHEET_ID: "",
   
-  // Sheet names representing the normalized tables
+  // Sheet names representing the normalized tables exactly as required
   SHEETS: {
-    USERS: "Users",
-    LOCATIONS: "Locations",
-    PICKLISTS: "Picklists",
-    TECHNICIANS: "Technicians",
-    SLA_RULES: "SlaRules",
-    WORK_ORDERS: "WorkOrders",
-    NOTES: "Notes",
-    ATTACHMENTS: "Attachments",
-    HISTORY: "History",
-    MOJO_TICKETS: "MojoTickets",
-    AUDIT_LOGS: "AuditLogs",
-    SYSTEM_LOGS: "SystemLogs",
-    IDEMPOTENCY_KEYS: "IdempotencyKeys"
+    APP_SETTINGS: "APP_SETTINGS",
+    USERS: "USERS",
+    ROLES: "ROLES",
+    PERMISSIONS: "PERMISSIONS",
+    ROLE_PERMISSIONS: "ROLE_PERMISSIONS",
+    PICKLISTS: "PICKLISTS",
+    LOCATIONS: "LOCATIONS",
+    TECHNICIANS: "TECHNICIANS",
+    WORK_ORDERS: "WORK_ORDERS",
+    WO_NOTES: "WO_NOTES",
+    WO_FILES: "WO_FILES",
+    WO_HISTORY: "WO_HISTORY",
+    WO_ASSIGNMENTS: "WO_ASSIGNMENTS",
+    WO_REVIEWS: "WO_REVIEWS",
+    SLA_RULES: "SLA_RULES",
+    NOTIFICATIONS: "NOTIFICATIONS",
+    DASHBOARD_CACHE: "DASHBOARD_CACHE",
+    SYSTEM_LOGS: "SYSTEM_LOGS",
+    AUDIT_LOG: "AUDIT_LOG",
+    IDEMPOTENCY_KEYS: "IDEMPOTENCY_KEYS",
+    MOJO_TICKETS: "MOJO_TICKETS"
   },
 
   // Security roles
